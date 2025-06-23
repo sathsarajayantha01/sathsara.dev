@@ -2036,7 +2036,7 @@ const Portfolio = () => {
                   { 
                     icon: <Mail className="w-8 h-8 text-blue-400" />,
                     title: "Email Me",
-                    info: "sathsarajayantha08@.com" 
+                    info: "sathsarajayantha8@gmail.com" 
                   }
                 ].map((item, index) => (
                   <motion.div 
