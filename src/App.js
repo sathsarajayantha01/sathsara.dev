@@ -697,7 +697,7 @@ const Portfolio = () => {
                 <Linkedin size={18} />
               </motion.a>
               <motion.a 
-                href="mailto:sathsarajayantha08@gmail.com" 
+                href="mailto:sathsarajayantha8@gmail.com" 
                 className="w-10 h-10 rounded-full flex items-center justify-center border border-blue-400/30 bg-blue-900/20 text-blue-300 hover:bg-blue-800/40 hover:text-blue-200 transition-all duration-300"
                 whileHover={{ y: -5, scale: 1.1 }}
               >
@@ -1000,7 +1000,7 @@ const Portfolio = () => {
                     {[
                       { icon: <Github className="w-5 h-5" />, link: "https://github.com/sathsarajayantha01", color: "from-gray-700 to-gray-900" },
                       { icon: <Linkedin className="w-5 h-5" />, link: "https://www.linkedin.com/in/sathsarajayantha01/", color: "from-blue-600 to-blue-800" },
-                      { icon: <Mail className="w-5 h-5" />, link: "mailto:sathsarajayantha08@gmail.com", color: "from-blue-400 to-cyan-600" }
+                      { icon: <Mail className="w-5 h-5" />, link: "mailto:sathsarajayantha8@gmail.com", color: "from-blue-400 to-cyan-600" }
                     ].map((item, index) => (
                       <motion.a 
                         key={index}
@@ -1384,7 +1384,7 @@ const Portfolio = () => {
               className="w-full sm:w-auto"
             >
               <a 
-                href="mailto:sathsarajayantha08@gmail.com" 
+                href="mailto:sathsarajayantha8@gmail.com" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="group relative inline-flex items-center w-full sm:w-auto px-8 py-4 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg transition-all duration-300 hover:shadow-blue-500/30"
@@ -2070,7 +2070,7 @@ const Portfolio = () => {
                   {[
                     { icon: <Github className="w-6 h-6" />, link: "https://github.com/sathsarajayantha01" },
                     { icon: <Linkedin className="w-6 h-6" />, link: "https://www.linkedin.com/in/sathsarajayantha01/" },
-                    { icon: <Mail className="w-6 h-6" />, link: "mailto:sathsarajayantha08@gmail.com" }
+                    { icon: <Mail className="w-6 h-6" />, link: "mailto:sathsarajayantha8@gmail.com" }
                   ].map((item, index) => (
                     <motion.a 
                       key={index}
@@ -2158,7 +2158,7 @@ const Portfolio = () => {
                 {[
                   { icon: <Github className="w-4 h-4" />, link: "https://github.com/sathsarajayantha01" },
                   { icon: <Linkedin className="w-4 h-4" />, link: "https://www.linkedin.com/in/sathsarajayantha01/" },
-                  { icon: <Mail className="w-4 h-4" />, link: "mailto:sathsarajayantha08@gmail.com" }
+                  { icon: <Mail className="w-4 h-4" />, link: "mailto:sathsarajayantha8@gmail.com" }
                 ].map((item, index) => (
                   <motion.a 
                     key={index}
