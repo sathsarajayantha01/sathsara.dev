@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/sathsara.dev/static/css/main.553d552f.css",
-    "main.js": "/sathsara.dev/static/js/main.017e0a0c.js",
+    "main.js": "/sathsara.dev/static/js/main.d0a2425d.js",
     "index.html": "/sathsara.dev/index.html",
     "main.553d552f.css.map": "/sathsara.dev/static/css/main.553d552f.css.map",
-    "main.017e0a0c.js.map": "/sathsara.dev/static/js/main.017e0a0c.js.map"
+    "main.d0a2425d.js.map": "/sathsara.dev/static/js/main.d0a2425d.js.map"
   },
   "entrypoints": [
     "static/css/main.553d552f.css",
-    "static/js/main.017e0a0c.js"
+    "static/js/main.d0a2425d.js"
   ]
 }
