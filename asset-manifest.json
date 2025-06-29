@@ -1,13 +1,25 @@
 {
   "files": {
-    "main.css": "/sathsara.dev/static/css/main.553d552f.css",
-    "main.js": "/sathsara.dev/static/js/main.d0a2425d.js",
+    "main.css": "/sathsara.dev/static/css/main.d813fc7e.css",
+    "main.js": "/sathsara.dev/static/js/main.00fb85ec.js",
+    "static/js/435.390096e4.chunk.js": "/sathsara.dev/static/js/435.390096e4.chunk.js",
+    "static/css/907.75f56db7.chunk.css": "/sathsara.dev/static/css/907.75f56db7.chunk.css",
+    "static/js/907.0e06997c.chunk.js": "/sathsara.dev/static/js/907.0e06997c.chunk.js",
+    "static/js/612.74ead4fa.chunk.js": "/sathsara.dev/static/js/612.74ead4fa.chunk.js",
+    "static/js/11.f1b36d9b.chunk.js": "/sathsara.dev/static/js/11.f1b36d9b.chunk.js",
+    "static/js/751.074e69c3.chunk.js": "/sathsara.dev/static/js/751.074e69c3.chunk.js",
     "index.html": "/sathsara.dev/index.html",
-    "main.553d552f.css.map": "/sathsara.dev/static/css/main.553d552f.css.map",
-    "main.d0a2425d.js.map": "/sathsara.dev/static/js/main.d0a2425d.js.map"
+    "main.d813fc7e.css.map": "/sathsara.dev/static/css/main.d813fc7e.css.map",
+    "main.00fb85ec.js.map": "/sathsara.dev/static/js/main.00fb85ec.js.map",
+    "435.390096e4.chunk.js.map": "/sathsara.dev/static/js/435.390096e4.chunk.js.map",
+    "907.75f56db7.chunk.css.map": "/sathsara.dev/static/css/907.75f56db7.chunk.css.map",
+    "907.0e06997c.chunk.js.map": "/sathsara.dev/static/js/907.0e06997c.chunk.js.map",
+    "612.74ead4fa.chunk.js.map": "/sathsara.dev/static/js/612.74ead4fa.chunk.js.map",
+    "11.f1b36d9b.chunk.js.map": "/sathsara.dev/static/js/11.f1b36d9b.chunk.js.map",
+    "751.074e69c3.chunk.js.map": "/sathsara.dev/static/js/751.074e69c3.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.553d552f.css",
-    "static/js/main.d0a2425d.js"
+    "static/css/main.d813fc7e.css",
+    "static/js/main.00fb85ec.js"
   ]
 }
