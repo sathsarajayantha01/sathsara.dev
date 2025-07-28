@@ -1,6 +1,19 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense, useCallback } from 'react';
 import { Github, Linkedin, Mail, ExternalLink, Menu, X, Code, Palette, Globe, MapPin, Phone, Calendar, Star, User, Award, Figma, Layout, Layers, MonitorSmartphone, CheckCircle, FileCode, Monitor, Zap, Briefcase, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Performance utilities
+import { 
+  debounce, 
+  throttle, 
+  rafThrottle, 
+  getDevicePerformance, 
+  prefersReducedMotion, 
+  observePerformance, 
+  preloadCriticalResources, 
+  optimizeAnimations,
+  createOptimizedScrollHandler 
+} from './utils/performance';
 
 // Lazy load heavy components
 const ParticleBackground = lazy(() => import('./components/ParticleBackground'));
@@ -29,6 +42,78 @@ const Portfolio = () => {
   const [activeSection, setActiveSection] = useState('home');
   const [filterCategory, setFilterCategory] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [devicePerformance, setDevicePerformance] = useState(null);
+
+  // Performance optimization - detect device capabilities
+  useEffect(() => {
+    const perf = getDevicePerformance();
+    setDevicePerformance(perf);
+    
+    // Optimize animations based on device performance
+    optimizeAnimations();
+    
+    // Initialize performance monitoring
+    observePerformance();
+    
+    // Preload critical resources
+    preloadCriticalResources();
+    
+    console.log('Device Performance Level:', perf.level);
+  }, []);
+
+  // Optimized scroll handler
+  const handleScroll = useCallback(
+    createOptimizedScrollHandler(() => {
+      // Your scroll logic here
+      const sections = ['home', 'about', 'services', 'projects', 'contact'];
+      const scrollPosition = window.scrollY + 100;
+
+      for (const section of sections) {
+        const element = document.getElementById(section);
+        if (element) {
+          const { offsetTop, offsetHeight } = element;
+          if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
+            setActiveSection(section);
+            break;
+          }
+        }
+      }
+    }),
+    []
+  );
+
+  // Optimized menu toggle
+  const toggleMenu = useCallback(
+    debounce(() => {
+      setIsMenuOpen(prev => !prev);
+    }, 100),
+    []
+  );
+
+  // Optimized loader completion callback
+  const handleLoadingComplete = useCallback(() => {
+    setIsLoading(false);
+  }, []);
+
+  // Performance-aware animation variants
+  const getAnimationVariants = useCallback(() => {
+    const reduceMotion = prefersReducedMotion();
+    const isLowPerf = devicePerformance?.level === 'low';
+    
+    if (reduceMotion || isLowPerf) {
+      return {
+        duration: 0.1,
+        ease: 'linear',
+        transition: { duration: 0.1 }
+      };
+    }
+    
+    return {
+      duration: 0.5,
+      ease: 'easeOut',
+      transition: { duration: 0.5 }
+    };
+  }, [devicePerformance]);
 
   // Debug effect for menu state (only in development)
   useEffect(() => {
@@ -225,57 +310,15 @@ const Portfolio = () => {
     { number: "1+", label: "Years Experience" },
   ], []);
 
+  // Optimized scroll event handler
   useEffect(() => {
-    // The ModernLoader component now handles its own timing and will call setIsLoading(false)
-    // when it's ready via the onComplete callback
-    
-    // Optimized scroll handler with better throttling
-    let ticking = false;
-    
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          // Detect current section with improved accuracy
-          const sections = ['home', 'about', 'services', 'experience', 'projects', 'contact'];
-          const scrollPosition = window.scrollY + 100;
-          
-          // Find the section that's currently in view
-          let current = null;
-          for (const section of sections) {
-            const element = document.getElementById(section);
-            if (element) {
-              const offsetTop = element.offsetTop;
-              const height = element.offsetHeight;
-              
-              if (scrollPosition >= offsetTop && scrollPosition < offsetTop + height) {
-                current = section;
-                break;
-              }
-            }
-          }
-          
-          // If no section is found but we're at the bottom, use the last section
-          if (!current && window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-            current = 'contact';
-          }
-          
-          if (current && current !== activeSection) {
-            setActiveSection(current);
-          }
-          
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    // Use passive event listener for better performance
+    // Use our optimized scroll handler
     window.addEventListener('scroll', handleScroll, { passive: true });
     
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [activeSection]); // Add activeSection as dependency to prevent unnecessary updates
+  }, [handleScroll]);
 
   const scrollToSection = (sectionId) => {
     if (process.env.NODE_ENV === 'development') {
@@ -390,19 +433,23 @@ const Portfolio = () => {
       {/* Add LiquidEffect component to enable interactive glass effects */}
       <LiquidEffect />
       
-      {/* Enhanced Animated Background */}
-      <Suspense fallback={null}>
-        <AnimatedBackground />
-      </Suspense>
+      {/* Enhanced Animated Background - Only on high performance devices */}
+      {devicePerformance?.level !== 'low' && (
+        <Suspense fallback={null}>
+          <AnimatedBackground />
+        </Suspense>
+      )}
       
       {isLoading ? (
-        <ModernUniqueLoader onComplete={() => setIsLoading(false)} />
+        <ModernUniqueLoader onComplete={handleLoadingComplete} />
       ) : null}
       
-      {/* Lazy-loaded Particle Background */}
-      <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black" />}>
-        <ParticleBackground />
-      </Suspense>
+      {/* Lazy-loaded Particle Background - Disabled on low-end devices */}
+      {devicePerformance?.level === 'high' && (
+        <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black" />}>
+          <ParticleBackground />
+        </Suspense>
+      )}
       <ScrollToTopButton />
       {/* Modern Navigation */}
       <motion.nav 
@@ -463,7 +510,7 @@ const Portfolio = () => {
                 if (process.env.NODE_ENV === 'development') {
                   console.log('Mobile menu clicked:', !isMenuOpen);
                 }
-                setIsMenuOpen(!isMenuOpen);
+                toggleMenu();
               }}
               whileHover={{ scale: 1.1, backgroundColor: 'rgba(30, 64, 175, 0.4)' }}
               whileTap={{ scale: 0.95 }}
@@ -810,428 +857,266 @@ const Portfolio = () => {
               viewport={{ once: true }}
             />
             
-            <SectionHeader 
-              title="About Me" 
-              subtitle="Turning creative visions into digital reality" 
-            />
-            
-            <motion.div 
-              className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent"
-              initial={{ width: 0, opacity: 0 }}
-              whileInView={{ width: "12rem", opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              viewport={{ once: true }}
-            />
-            
-            <motion.div
-              className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"
-              initial={{ width: 0 }}
-              whileInView={{ width: "4rem" }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              viewport={{ once: true }}
-            />
+          {/* Section Header */}
+          <SectionHeader 
+            title="About Me" 
+            subtitle="Turning creative visions into digital reality" 
+          />
           </motion.div>
           
-          {/* Main content with modern layout */}
-          <div className="grid lg:grid-cols-12 gap-8 items-start">
-            {/* Profile & Bio - 5 columns wide */}
-            <motion.div
-              className="lg:col-span-5 relative"
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-            >
-              {/* Glass profile card */}
-              <div className="relative mb-10 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-black/30 rounded-2xl blur-md transform -rotate-1 scale-[1.03]"></div>
-                <motion.div 
-                  className="relative p-5 border border-blue-500/20 rounded-2xl overflow-hidden backdrop-blur-sm bg-gradient-to-br from-blue-900/40 to-black/40 shadow-xl"
-                  whileHover={{ y: -5 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {/* Profile image with glowing effect */}
-                  <div className="mb-6 flex justify-center">
-                    <div className="relative w-32 h-32 rounded-full">
-                      {/* Pulsing glow effect */}
-                      <motion.div 
-                        className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 blur-xl"
-                        animate={{ 
-                          scale: [1, 1.1, 1],
-                          opacity: [0.5, 0.7, 0.5]
-                        }}
-                        transition={{ 
-                          duration: 3,
-                          repeat: Infinity,
-                          repeatType: "reverse"
-                        }}
-                      />
-                      
-                      {/* Profile image container */}
-                      <div className="absolute inset-0 rounded-full p-1 bg-gradient-to-tr from-blue-600 to-cyan-400">
-                        <div className="w-full h-full rounded-full overflow-hidden border-2 border-white/30">
-                          <img 
-                            src="https://sathsarajayantha01.github.io/SathsaraJayantha/img/Untitled-145-modified.png"
-                            alt="Sathsara Jayantha"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Experience badge - Restyled */}
-                  <motion.div 
-                    className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-700 text-white px-4 py-2 rounded-bl-lg rounded-tr-lg shadow-lg border border-blue-400/50 overflow-hidden flex items-center gap-2 text-sm"
-                    initial={{ x: 20, opacity: 0 }}
-                    whileInView={{ x: 0, opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.3, type: "spring" }}
-                    viewport={{ once: true }}
-                    whileHover={{ scale: 1.03 }}
-                  >
-                    <motion.span
-                      animate={{ 
-                        scale: [1, 1.1, 1],
-                      }}
-                      transition={{ 
-                        duration: 2,
-                        repeat: Infinity
-                      }}
-                    >
-                      <div className="text-2xl font-bold text-white inline-block">1+</div>
-                    </motion.span>
-                    <div>Years<br/>Experience</div>
-                  </motion.div>
-                  
-                  {/* Bio header */}
-                  <motion.h3 
-                    className="text-2xl font-bold text-blue-300 mb-4 relative inline-block"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.4 }}
-                    viewport={{ once: true }}
-                  >
-                    Sathsara Jayantha
-                    <motion.div 
-                      className="absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 w-full" 
-                      initial={{ width: 0 }}
-                      whileInView={{ width: '100%' }}
-                      transition={{ duration: 0.8, delay: 0.6 }}
-                      viewport={{ once: true }}
-                    />
-                  </motion.h3>
-                  
-                  {/* Dynamic role display */}
-                  <motion.p 
-                    className="text-blue-200 mb-4 flex items-center gap-2"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.5 }}
-                    viewport={{ once: true }}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                    UI/UX Designer & Web Developer
-                  </motion.p>
-                  
-                  {/* Bio paragraph with animated reveal */}
-                  <motion.p 
-                    className="text-gray-300 mb-6 leading-relaxed"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                    viewport={{ once: true }}
-                  >
-                    I specialize in creating visually stunning and highly usable digital products. 
-                    Bringing together creativity and technical expertise to deliver solutions that not only look beautiful but 
-                    also perform flawlessly and create meaningful user experiences.
-                  </motion.p>
-                  
-                  {/* Social links with hover effects */}
-                  <motion.div 
-                    className="flex space-x-3"
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.8 }}
-                    viewport={{ once: true }}
-                  >
-                    {[
-                      { icon: <Github className="w-5 h-5" />, link: "https://github.com/sathsarajayantha01", color: "from-gray-700 to-gray-900" },
-                      { icon: <Linkedin className="w-5 h-5" />, link: "https://www.linkedin.com/in/sathsarajayantha01/", color: "from-blue-600 to-blue-800" },
-                      { icon: <Mail className="w-5 h-5" />, link: "mailto:sathsarajayantha8@gmail.com", color: "from-blue-400 to-cyan-600" }
-                    ].map((item, index) => (
-                      <motion.a 
-                        key={index}
-                        href={item.link}
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className={`flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br ${item.color} text-white shadow-lg hover:shadow-blue-500/25 transition-all duration-300`}
-                        whileHover={{ y: -4, scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                      >
-                        {item.icon}
-                        <motion.span
-                          className="absolute inset-0 rounded-full bg-blue-400/20"
-                          initial={{ scale: 0 }}
-                          whileHover={{ scale: 1.5, opacity: 0 }}
-                          transition={{ duration: 0.8 }}
-                        />
-                      </motion.a>
-                    ))}
-                  </motion.div>
-                </motion.div>
-              </div>
-              
-              {/* Key features */}
-              <div className="space-y-4 mt-8">
-                {[
-                  { icon: <CheckCircle className="w-6 h-6" />, text: "Pixel-perfect UI design with attention to every detail", gradient: "from-blue-600 to-blue-900" },
-                  { icon: <User className="w-6 h-6" />, text: "User-centered approach focusing on intuitive experiences", gradient: "from-blue-700 to-black" },
-                  { icon: <Layers className="w-6 h-6" />, text: "Clean, modern code following best practices", gradient: "from-black to-blue-800" }
-                ].map((item, index) => (
-                  <motion.div 
-                    key={index}
-                    className="flex items-start gap-4 p-4 rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-900/30 to-black/40 backdrop-blur-sm shadow-lg hover:shadow-blue-500/10 transition-all duration-300"
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 + index * 0.1 }}
-                    viewport={{ once: true }}
-                    whileHover={{ y: -3, transition: { duration: 0.2 } }}
-                  >
-                    {/* Icon wrapper with gradient */}
-                    <div className={`p-3 rounded-lg bg-gradient-to-br ${item.gradient} text-white shadow-md`}>
-                      {item.icon}
-                    </div>
-                    
-                    {/* Text content */}
-                    <div>
-                      <h4 className="font-medium text-white mb-1">{item.text.split(' ').slice(0,2).join(' ')}</h4>
-                      <p className="text-blue-200 text-sm">{item.text}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-            
-            {/* Skills section - 7 columns wide */}
-            <motion.div 
-              className="lg:col-span-7 relative"
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              viewport={{ once: true }}
-            >
-              {/* Skills header */}
-              <motion.h3 
-                className="text-2xl font-bold text-blue-300 mb-6 relative inline-block"
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                viewport={{ once: true }}
-              >
-                Skills & Expertise
-                <motion.div 
-                  className="absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-600 via-blue-400 to-transparent w-full" 
-                  initial={{ width: 0 }}
-                  whileInView={{ width: '100%' }}
-                  transition={{ duration: 0.8, delay: 0.3 }}
-                  viewport={{ once: true }}
-                />
-              </motion.h3>
-              
-              {/* Skills mastery visualization */}
-              <motion.p
-                className="text-gray-300 mb-8"
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                viewport={{ once: true }}
-              >
-                Specialized in modern UI/UX design tools and web development technologies.
-              </motion.p>
-              
-              {/* Featured skills with modern card design - no percentages */}
-              <div className="grid md:grid-cols-3 gap-5 mb-8">
-                {skills.slice(0, 6).map((skill, index) => (
-                  <Tilt key={index} className="parallax-effect w-full h-full" options={{ max: 15, scale: 1.05, speed: 500 }}>
-                    <motion.div
-                      className="h-full relative rounded-xl shadow-xl overflow-hidden backdrop-blur-sm"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.1 * index }}
-                      viewport={{ once: true }}
-                      whileHover={{ 
-                        y: -8, 
-                        boxShadow: "0 20px 30px -10px rgba(0, 0, 0, 0.2), 0 0 15px rgba(59, 130, 246, 0.3)"
-                      }}
-                    >
-                      {/* Glowing backgrounds */}
-                      <div className="absolute w-full h-full">
-                        <motion.div 
-                          className={`absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl opacity-30 ${
-                            index % 3 === 0 ? 'bg-blue-500' :
-                            index % 3 === 1 ? 'bg-blue-700' :
-                            'bg-blue-900'
-                          }`}
-                          animate={{
-                            scale: [1, 1.2, 1],
-                            opacity: [0.3, 0.2, 0.3],
-                          }}
-                          transition={{
-                            duration: 3,
-                            repeat: Infinity,
-                            repeatType: "reverse"
-                          }}
-                        />
-                        <motion.div 
-                          className={`absolute -bottom-10 -left-10 w-24 h-24 rounded-full blur-2xl opacity-20 ${
-                            index % 3 === 0 ? 'bg-blue-800' :
-                            index % 3 === 1 ? 'bg-blue-600' :
-                            'bg-blue-400'
-                          }`}
-                          animate={{
-                            scale: [1, 1.2, 1],
-                            opacity: [0.2, 0.3, 0.2],
-                          }}
-                          transition={{
-                            duration: 4,
-                            repeat: Infinity,
-                            repeatType: "reverse",
-                            delay: 0.5
-                          }}
-                        />
-                      </div>
-                      
-                      {/* Border glow */}
-                      <div className="absolute inset-0 border border-blue-500/20"></div>
-                      
-                      {/* Background gradient */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${
-                        index % 3 === 0 ? 'from-blue-600/20 via-blue-900/30 to-black/40' :
-                        index % 3 === 1 ? 'from-black/40 via-blue-900/30 to-blue-800/20' :
-                        'from-blue-800/20 via-black/30 to-blue-600/20'
-                      }`}></div>
-                      
-                      {/* Subtle pattern */}
-                      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-                      
-                      {/* Content wrapper */}
-                      <div className="relative p-6 flex flex-col items-center justify-center h-full text-center z-10">
-                        {/* Skill icon with animated container */}
-                        <motion.div 
-                          className={`p-4 rounded-xl mb-4 bg-gradient-to-br ${
-                            index % 3 === 0 ? 'from-blue-500 to-blue-700' :
-                            index % 3 === 1 ? 'from-blue-700 to-black' :
-                            'from-black to-blue-700'
-                          } text-white shadow-lg`}
-                          whileHover={{ 
-                            rotate: [0, -5, 5, -5, 0],
-                            scale: 1.1,
-                            transition: { duration: 0.6 }
-                          }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          {React.cloneElement(skill.icon, { className: "w-8 h-8" })}
-                        </motion.div>
-                        
-                        {/* Skill name with gradient text */}
-                        <h4 className="text-lg font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent mb-1">
-                          {skill.name}
-                        </h4>
-                        
-                        {/* Skill tag */}
-                        <motion.div 
-                          className="mt-1 px-3 py-1 rounded-full bg-blue-800/30 border border-blue-500/20 text-xs text-blue-300"
-                          initial={{ opacity: 0, scale: 0 }}
-                          whileInView={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.3, delay: 0.3 + (index * 0.1) }}
-                          viewport={{ once: true }}
-                        >
-                          {index % 3 === 0 ? 'Expert' : index % 3 === 1 ? 'Advanced' : 'Proficient'}
-                        </motion.div>
-                      </div>
-                      
-                      {/* Decorative bottom line */}
-                      <motion.div 
-                        className={`absolute bottom-0 left-0 h-1 ${
-                          index % 3 === 0 ? 'bg-gradient-to-r from-blue-600 to-blue-400' :
-                          index % 3 === 1 ? 'bg-gradient-to-r from-black to-blue-700' :
-                          'bg-gradient-to-r from-blue-900 to-black'
-                        }`}
-                        initial={{ width: 0 }}
-                        whileInView={{ width: '100%' }}
-                        transition={{ duration: 1, delay: 0.4 + (index * 0.1) }}
-                        viewport={{ once: true }}
-                      />
-                    </motion.div>
-                  </Tilt>
-                ))}
-              </div>
-              
-              {/* Additional skills with chip design */}
-              <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-                {skills.slice(6).map((skill, index) => (
-                  <motion.div
-                    key={index}
-                    className="inline-flex items-center gap-3 px-5 py-3 rounded-full backdrop-blur-sm border border-blue-500/20 
-                    bg-gradient-to-br from-black/60 to-blue-900/40 shadow-lg hover:shadow-blue-500/10 transition-all duration-300"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: 0.1 * (index + 6) }}
-                    viewport={{ once: true }}
-                    whileHover={{ 
-                      y: -5, 
-                      boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.15)",
-                      scale: 1.05
-                    }}
-                  >
-                    {/* Skill icon with glow */}
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-blue-500 rounded-full blur-md opacity-20"></div>
-                      <div className="relative p-2 rounded-full bg-gradient-to-br from-blue-700 to-black text-blue-300">
-                        {React.cloneElement(skill.icon, { className: "w-5 h-5" })}
-                      </div>
-                    </div>
-                    
-                    {/* Skill name */}
-                    <div className="font-medium text-blue-100">{skill.name}</div>
-                    
-                    {/* Decorative dot */}
-                    <div className="ml-1 w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                  </motion.div>
-                ))}
-              </div>
-              
-              {/* Resume download button */}
+          {/* Main content with beautiful new layout */}
+          
+          {/* Profile Introduction - Centered Hero Style */}
+          <motion.div
+            className="max-w-4xl mx-auto text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+          >
+            {/* Profile Card */}
+            <div className="relative mb-12">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-3xl blur-2xl transform scale-110"></div>
               <motion.div 
-                className="mt-8 flex justify-center md:justify-start"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.9 }}
-                viewport={{ once: true }}
+                className="relative p-8 border border-blue-500/20 rounded-3xl overflow-hidden backdrop-blur-xl bg-gradient-to-br from-blue-900/20 to-purple-900/20 shadow-2xl"
+                whileHover={{ y: -5 }}
+                transition={{ duration: 0.3 }}
               >
-                <motion.a 
-                  href="https://sathsarajayantha01.github.io/SathsaraJayantha/pdf/Sathsara_Jayantha_CV.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-8 py-3 rounded-full inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-medium shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
-                  whileHover={{ y: -5, scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                {/* Name and Title */}
+                <motion.h3 
+                  className="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-400 via-white to-blue-400 bg-clip-text mb-4"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  viewport={{ once: true }}
                 >
-                  Download My Resume
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  
-                  <motion.span
-                    className="absolute inset-0 rounded-full bg-blue-400/20"
-                    initial={{ scale: 0 }}
-                    whileHover={{ scale: 1.5, opacity: 0 }}
-                    transition={{ duration: 0.8 }}
+                  Sathsara Jayantha
+                </motion.h3>
+                
+                {/* Role with animated indicator */}
+                <motion.div 
+                  className="flex items-center justify-center gap-3 mb-6"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
+                  viewport={{ once: true }}
+                >
+                  <motion.div 
+                    className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400"
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.7, 1, 0.7]
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      repeatType: "reverse"
+                    }}
                   />
-                </motion.a>
+                  <span className="text-xl text-blue-200 font-medium">
+                    UI/UX Designer & Web Developer
+                  </span>
+                  <motion.div 
+                    className="w-3 h-3 rounded-full bg-gradient-to-r from-cyan-400 to-blue-400"
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.7, 1, 0.7]
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      repeatType: "reverse",
+                      delay: 1
+                    }}
+                  />
+                </motion.div>
+                
+                {/* Bio description */}
+                <motion.p 
+                  className="text-gray-300 text-lg leading-relaxed max-w-2xl mx-auto mb-8"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                  viewport={{ once: true }}
+                >
+                  I specialize in creating visually stunning and highly usable digital products. 
+                  Bringing together creativity and technical expertise to deliver solutions that not only look beautiful but 
+                  also perform flawlessly and create meaningful user experiences.
+                </motion.p>
+                
+                {/* Stats Row */}
+                <motion.div 
+                  className="flex justify-center items-center gap-8 mb-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.5 }}
+                  viewport={{ once: true }}
+                >
+                  {[
+                    { number: "5+", label: "Projects\nCompleted" },
+                    { number: "5+", label: "Satisfied\nClients" },
+                    { number: "1+", label: "Years\nExperience" }
+                  ].map((stat, index) => (
+                    <motion.div
+                      key={index}
+                      className="text-center group cursor-pointer"
+                      whileHover={{ scale: 1.05 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <motion.div 
+                        className="text-3xl font-bold text-transparent bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text mb-1 group-hover:from-cyan-400 group-hover:to-blue-400 transition-all duration-300"
+                        initial={{ scale: 0 }}
+                        whileInView={{ scale: 1 }}
+                        transition={{ 
+                          duration: 0.5,
+                          delay: 0.6 + index * 0.1,
+                          type: "spring",
+                          stiffness: 200
+                        }}
+                        viewport={{ once: true }}
+                      >
+                        {stat.number}
+                      </motion.div>
+                      <div className="text-sm text-gray-400 whitespace-pre-line group-hover:text-gray-300 transition-colors duration-300">
+                        {stat.label}
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+                
+                {/* Social Links */}
+                <motion.div 
+                  className="flex justify-center gap-4"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.7 }}
+                  viewport={{ once: true }}
+                >
+                  {[
+                    { icon: <Github className="w-5 h-5" />, href: "https://github.com/SathsaraJayantha01", color: "hover:text-gray-300" },
+                    { icon: <Linkedin className="w-5 h-5" />, href: "https://linkedin.com/in/sathsara-jayantha", color: "hover:text-blue-400" },
+                    { icon: <Mail className="w-5 h-5" />, href: "mailto:sathsarajayantha0@gmail.com", color: "hover:text-blue-300" }
+                  ].map((social, index) => (
+                    <motion.a
+                      key={index}
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`p-3 rounded-full bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/20 text-gray-400 ${social.color} transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-blue-500/20`}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {social.icon}
+                    </motion.a>
+                  ))}
+                </motion.div>
               </motion.div>
+            </div>
+          </motion.div>
+          
+          {/* Skills & Expertise Section */}
+          <motion.div 
+            className="mb-20"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            viewport={{ once: true }}
+          >
+            <motion.h3 
+              className="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-blue-500 bg-clip-text mb-6 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              Skills & Expertise
+            </motion.h3>
+
+            <motion.p
+              className="text-gray-300 text-lg mb-16 max-w-3xl mx-auto leading-relaxed text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              viewport={{ once: true }}
+            >
+              Specialized in cutting-edge design tools and modern web technologies, 
+              with a passion for creating exceptional digital experiences.
+            </motion.p>
+              
+            {/* Skills Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              {skills.map((skill, index) => (
+                <motion.div
+                  key={index}
+                  className="group relative"
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -8 }}
+                >
+                  <div className="relative h-full p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 overflow-hidden transition-all duration-500 group-hover:border-blue-400/30 group-hover:shadow-2xl group-hover:shadow-blue-500/10">
+                    <motion.div 
+                      className="relative z-10 w-16 h-16 mx-auto mb-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <span className="text-2xl" role="img" aria-label={skill.name}>
+                        {skill.icon}
+                      </span>
+                    </motion.div>
+                    
+                    <h4 className="relative z-10 text-lg font-semibold text-white mb-2 text-center group-hover:text-blue-300 transition-colors duration-300">
+                      {skill.name}
+                    </h4>
+                    
+                    <div className="relative z-10 mb-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm text-gray-400">Proficiency</span>
+                        <span className="text-sm text-blue-400 font-medium">{skill.level}%</span>
+                      </div>
+                      <div className="w-full bg-gray-700/30 rounded-full h-2 overflow-hidden">
+                        <motion.div 
+                          className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"
+                          initial={{ width: 0 }}
+                          whileInView={{ width: `${skill.level}%` }}
+                          transition={{ duration: 1.5, delay: 0.2 + index * 0.1, ease: "easeOut" }}
+                          viewport={{ once: true }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <p className="relative z-10 text-sm text-gray-400 text-center leading-relaxed">
+                      {skill.description}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            
+            {/* Resume Download Button */}
+            <motion.div 
+              className="text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.9 }}
+              viewport={{ once: true }}
+            >
+              <motion.a 
+                href="https://sathsarajayantha01.github.io/SathsaraJayantha/pdf/Sathsara_Jayantha_CV.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-8 py-3 rounded-full inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-medium shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
+                whileHover={{ y: -5, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download Resume
+              </motion.a>
             </motion.div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
