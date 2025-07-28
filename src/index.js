@@ -2,8 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { logPerformanceMetrics } from './reportWebVitals';
 
-// Force dark mode by default without option to switch
+// Site uses dark mode only - no light mode option available
 document.documentElement.classList.add('dark');
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -12,3 +13,8 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Monitor performance metrics in development
+if (process.env.NODE_ENV === 'development') {
+  logPerformanceMetrics();
+}

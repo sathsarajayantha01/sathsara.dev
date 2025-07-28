@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Github, Linkedin, Mail, ExternalLink, Menu, X, Code, Palette, Globe, MapPin, Phone, Calendar, Star, User, Award, Figma, Layout, Layers, MonitorSmartphone, CheckCircle, FileCode, Monitor, Zap, Briefcase, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ParticleBackground from './components/ParticleBackground';
-import ContactForm from './components/ContactForm';
+
+// Lazy load heavy components
+const ParticleBackground = lazy(() => import('./components/ParticleBackground'));
+const ContactForm = lazy(() => import('./components/ContactForm'));
+const AnimatedBackground = lazy(() => import('./components/AnimatedBackground'));
+
+// The one and only modern unique loader
+import ModernUniqueLoader from './components/ModernUniqueLoader';
+
+// Regular imports for critical components
 import ScrollToTopButton from './components/ScrollToTopButton';
 import SectionHeader from './components/SectionHeader';
 import ProjectCard from './components/ProjectCard';
@@ -13,6 +21,7 @@ import TypewriterText from './components/TypewriterText';
 import AnimatedSection from './components/AnimatedSection';
 import AppleGlassShowcase from './components/AppleGlassShowcase';
 import LiquidEffect from './components/LiquidEffect';
+import LazySection from './components/LazySection';
 import { Tilt } from 'react-tilt';
 
 const Portfolio = () => {
@@ -21,8 +30,15 @@ const Portfolio = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Updated services based on your actual skills
-  const services = [
+  // Debug effect for menu state (only in development)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mobile menu state changed:', isMenuOpen);
+    }
+  }, [isMenuOpen]);
+
+  // Memoize expensive data structures to prevent re-computation
+  const services = useMemo(() => [
     {
       title: "UI/UX Design",
       description: "Creating intuitive and attractive user interfaces with seamless user experiences for web and mobile applications.",
@@ -47,7 +63,7 @@ const Portfolio = () => {
       icon: <MonitorSmartphone className="w-8 h-8" />,
       features: ["iOS & Android UI", "App Flow Design", "Interactive Prototypes", "Design Systems"]
     }
-  ];
+  ], []);
 
   // Your portfolio projects from GitHub site
   const projects = [
@@ -164,48 +180,64 @@ const Portfolio = () => {
     }
   ];
 
-  const testimonials = [
+  // Static testimonials data
+  const initialTestimonials = [
     {
+      id: 1,
       name: "Amal Madhusanka",
       role: "Marketing Director",
       message: "Sathsara's designs have transformed our brand's visual identity. The attention to detail and creative thinking is exactly what we needed!",
-      rating: 5
+      rating: 5,
+      date: "2024-12-15"
     },
     {
+      id: 2,
       name: "Lakshitha Silva",
       role: "Startup Founder",
       message: "Working with Sathsara was a pleasure. He understood our vision perfectly and delivered a website that exceeded our expectations in both design and functionality.",
-      rating: 5
+      rating: 5,
+      date: "2024-12-20"
     },
     {
+      id: 3,
       name: "Nimal Gunawardena",
       role: "Business Owner",
       message: "The UI/UX design for our mobile app was exceptional. Our users love how intuitive and beautiful the interface is. Highly recommended!",
-      rating: 5
+      rating: 5,
+      date: "2024-12-25"
     }
   ];
 
-  const stats = [
+  // State for managing testimonials
+  const [testimonials, setTestimonials] = useState(initialTestimonials);
+  const [showTestimonialForm, setShowTestimonialForm] = useState(false);
+  const [newTestimonial, setNewTestimonial] = useState({
+    name: '',
+    role: '',
+    message: '',
+    rating: 5
+  });
+
+  // Memoize stats to prevent re-computation
+  const stats = useMemo(() => [
     { number: "5+", label: "Projects Completed" },
     { number: "5+", label: "Satisfied Clients" },
     { number: "1+", label: "Years Experience" },
-  ];
+  ], []);
 
   useEffect(() => {
-    // Simulate loading state with slightly longer duration to show the animation
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2800);
+    // The ModernLoader component now handles its own timing and will call setIsLoading(false)
+    // when it's ready via the onComplete callback
+    
+    // Optimized scroll handler with better throttling
+    let ticking = false;
     
     const handleScroll = () => {
-      // Throttle scroll events for better performance
-      if (!window.scrollTimeout) {
-        window.scrollTimeout = setTimeout(() => {
-          window.scrollTimeout = null;
-          
+      if (!ticking) {
+        requestAnimationFrame(() => {
           // Detect current section with improved accuracy
-          const sections = ['home', 'about', 'services', 'experience', 'projects', 'testimonials', 'contact'];
-          const scrollPosition = window.scrollY + 100; // Adjust detection point
+          const sections = ['home', 'about', 'services', 'experience', 'projects', 'contact'];
+          const scrollPosition = window.scrollY + 100;
           
           // Find the section that's currently in view
           let current = null;
@@ -222,25 +254,42 @@ const Portfolio = () => {
             }
           }
           
-          // If no section is found but we're at the bottom of the page, use the last section
+          // If no section is found but we're at the bottom, use the last section
           if (!current && window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-            current = 'contact'; // Typically the last section
+            current = 'contact';
           }
           
-          if (current) setActiveSection(current);
-        }, 100); // 100ms throttle
+          if (current && current !== activeSection) {
+            setActiveSection(current);
+          }
+          
+          ticking = false;
+        });
+        ticking = true;
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    // Use passive event listener for better performance
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      clearTimeout(timer);
     };
-  }, []);
+  }, [activeSection]); // Add activeSection as dependency to prevent unnecessary updates
 
   const scrollToSection = (sectionId) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Scrolling to section:', sectionId);
+    }
+    
     const element = document.getElementById(sectionId);
+    if (!element) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Element not found:', sectionId);
+      }
+      return;
+    }
+    
     const offset = 80; // Header height
     const elementPosition = element.getBoundingClientRect().top;
     const offsetPosition = elementPosition + window.pageYOffset - offset;
@@ -252,7 +301,12 @@ const Portfolio = () => {
     
     // Update active section manually for immediate feedback
     setActiveSection(sectionId);
+    
+    // Close mobile menu
     setIsMenuOpen(false);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mobile menu closed');
+    }
   };
 
   const githubProjects = [
@@ -296,184 +350,63 @@ const Portfolio = () => {
     }
   }, [filterCategory, projects, githubProjects]);
 
+  // Handle adding new testimonial
+  const handleAddTestimonial = (e) => {
+    e.preventDefault();
+    
+    if (!newTestimonial.name.trim() || !newTestimonial.message.trim()) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const testimonial = {
+      id: Date.now(),
+      ...newTestimonial,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setTestimonials(prev => [testimonial, ...prev]);
+    setNewTestimonial({
+      name: '',
+      role: '',
+      message: '',
+      rating: 5
+    });
+    setShowTestimonialForm(false);
+    
+    // Show success message
+    alert('Thank you! Your testimonial has been added successfully.');
+  };
+
+  const handleInputChange = (field, value) => {
+    setNewTestimonial(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-black dark:via-gray-900 dark:to-blue-900 bg-mesh-pattern bg-mesh-gradient bg-fixed text-gray-800 dark:text-white relative overflow-hidden font-outfit transition-colors duration-500">
       {/* Add LiquidEffect component to enable interactive glass effects */}
       <LiquidEffect />
       
+      {/* Enhanced Animated Background */}
+      <Suspense fallback={null}>
+        <AnimatedBackground />
+      </Suspense>
+      
       {isLoading ? (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-r from-black via-blue-950/90 to-black overflow-hidden">
-          {/* Animated background elements */}
-          <div className="absolute inset-0">
-            {/* Background grid pattern */}
-            <div className="absolute inset-0 bg-grid-pattern opacity-[0.05]"></div>
-            
-            {/* Animated orbs */}
-            <motion.div
-              className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-blue-500/10 filter blur-[100px]"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.15, 0.25, 0.15],
-                x: [0, 30, 0],
-                y: [0, -30, 0]
-              }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-blue-400/10 filter blur-[100px]"
-              animate={{
-                scale: [1.2, 1, 1.2],
-                opacity: [0.2, 0.1, 0.2],
-                x: [0, -20, 0],
-                y: [0, 20, 0]
-              }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            />
-            
-            {/* Subtle particle effect */}
-            <div className="absolute inset-0 opacity-30">
-              {[...Array(6)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-1 h-1 rounded-full bg-blue-400"
-                  style={{
-                    top: `${Math.random() * 100}%`,
-                    left: `${Math.random() * 100}%`
-                  }}
-                  animate={{
-                    opacity: [0, 1, 0],
-                    scale: [0, 1.5, 0],
-                  }}
-                  transition={{
-                    duration: 2 + Math.random() * 3,
-                    repeat: Infinity,
-                    delay: Math.random() * 2
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-          
-          {/* Logo animation */}
-          <motion.div 
-            className="relative w-32 h-32 mb-10"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            {/* Outer ring */}
-            <motion.div 
-              className="absolute inset-0 rounded-full border-2 border-blue-500/40"
-              animate={{ 
-                boxShadow: ["0 0 10px 0 rgba(59,130,246,0.3)", "0 0 20px 5px rgba(59,130,246,0.5)", "0 0 10px 0 rgba(59,130,246,0.3)"],
-              }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-            
-            {/* Multiple spinning rings */}
-            {[...Array(3)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute inset-0 rounded-full border border-blue-400/60"
-                style={{ borderWidth: 1 + i * 0.5 }}
-                animate={{ rotate: 360 }}
-                transition={{ 
-                  duration: 8 - i * 1.5, 
-                  repeat: Infinity, 
-                  ease: "linear"
-                }}
-              />
-            ))}
-            
-            {/* Inner glowing circle */}
-            <motion.div 
-              className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-600/60 backdrop-blur-sm flex items-center justify-center"
-              animate={{ 
-                boxShadow: ["0 0 20px 0 rgba(59,130,246,0.3)", "0 0 40px 5px rgba(59,130,246,0.4)", "0 0 20px 0 rgba(59,130,246,0.3)"],
-              }}
-              transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
-            >
-              <motion.div 
-                className="text-4xl font-bold text-white opacity-80"
-                animate={{ opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                SJ
-              </motion.div>
-            </motion.div>
-            
-            {/* Circling dots */}
-            {[...Array(12)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-1.5 h-1.5 rounded-full bg-blue-400"
-                style={{ 
-                  top: '50%', 
-                  left: '50%',
-                  margin: '-2px 0 0 -2px'
-                }}
-                animate={{
-                  x: Math.cos(i * 30 * Math.PI / 180) * 60,
-                  y: Math.sin(i * 30 * Math.PI / 180) * 60,
-                  opacity: [0.2, 1, 0.2],
-                  scale: [0.6, 1, 0.6]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  delay: i * 0.1,
-                  repeatType: "reverse"
-                }}
-              />
-            ))}
-          </motion.div>
-          
-          {/* Text content */}
-          <motion.div 
-            className="text-center z-10 relative"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            <motion.h2 
-              className="text-3xl font-bold mb-4 relative inline-block"
-              animate={{ 
-                filter: ["drop-shadow(0 0 8px #3b82f6)", "drop-shadow(0 0 16px #3b82f6)", "drop-shadow(0 0 8px #3b82f6)"] 
-              }}
-              transition={{ duration: 3, repeat: Infinity }}
-            >
-              <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-cyan-400 bg-clip-text text-transparent">
-                Sathsara Jayantha
-              </span>
-            </motion.h2>
-            
-            {/* Loading progress bar */}
-            <div className="w-60 h-1.5 bg-blue-900/40 rounded-full overflow-hidden mb-3 mx-auto">
-              <motion.div 
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-                initial={{ width: "0%" }}
-                animate={{ width: "100%" }}
-                transition={{ duration: 1.5, ease: "easeInOut" }}
-              />
-            </div>
-            
-            <motion.p 
-              className="text-blue-300 text-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              Crafting Digital Experiences
-            </motion.p>
-          </motion.div>
-        </div>
+        <ModernUniqueLoader onComplete={() => setIsLoading(false)} />
       ) : null}
       
-      <ParticleBackground />
+      {/* Lazy-loaded Particle Background */}
+      <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black" />}>
+        <ParticleBackground />
+      </Suspense>
       <ScrollToTopButton />
       {/* Modern Navigation */}
       <motion.nav 
-        className="fixed top-0 w-full z-50"
+        className="main-navigation fixed top-0 w-full z-50"
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -498,7 +431,7 @@ const Portfolio = () => {
             </motion.div>
             
             {/* Desktop Menu - Modern & Beautiful */}
-            <div className="hidden md:flex">
+            <div className="hidden md:flex desktop-menu">
               <div className="bg-blue-950/30 backdrop-blur-md rounded-full px-1.5 py-1.5 border border-blue-500/20">
                 <div className="flex space-x-1">
                   {['home', 'about', 'services', 'experience', 'projects', 'contact'].map((item, index) => (
@@ -525,10 +458,16 @@ const Portfolio = () => {
 
             {/* Mobile Menu Button with improved animation */}
             <motion.button
-              className="md:hidden relative z-20 w-10 h-10 flex items-center justify-center rounded-full bg-blue-900/30 backdrop-blur-sm border border-blue-500/20"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden mobile-menu-button relative z-20 w-11 h-11 flex items-center justify-center rounded-full bg-blue-900/30 backdrop-blur-sm border border-blue-500/20"
+              onClick={() => {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('Mobile menu clicked:', !isMenuOpen);
+                }
+                setIsMenuOpen(!isMenuOpen);
+              }}
               whileHover={{ scale: 1.1, backgroundColor: 'rgba(30, 64, 175, 0.4)' }}
               whileTap={{ scale: 0.95 }}
+              style={{ touchAction: 'manipulation' }}
             >
               {isMenuOpen ? (
                 <motion.div
@@ -552,46 +491,64 @@ const Portfolio = () => {
           {/* Mobile Menu - Enhanced with animations and glass effect */}
           <AnimatePresence>
             {isMenuOpen && (
-              <motion.div 
-                className="md:hidden absolute top-full left-0 right-0 z-50 backdrop-blur-xl bg-black/80 border-b border-blue-500/30 overflow-hidden shadow-xl"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-              >
-                <div className="py-4 px-2 space-y-1">
-                  {['home', 'about', 'services', 'experience', 'projects', 'contact'].map((item, index) => (
-                    <motion.button
-                      key={item}
-                      onClick={() => scrollToSection(item)}
-                      className={`block w-full text-left py-3 px-4 rounded-lg capitalize ${
-                        activeSection === item 
-                          ? 'bg-gradient-to-r from-blue-600/60 to-blue-500/50 text-white' 
-                          : 'text-gray-300 hover:bg-blue-900/30'
-                      }`}
-                      initial={{ x: -20, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.05 * index, duration: 0.3 }}
-                      whileHover={{ x: 5 }}
-                    >
-                      <div className="flex items-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mr-3"></div>
-                        <span className="font-medium">{item}</span>
-                      </div>
-                    </motion.button>
-                  ))}
-                  
-                  {/* Mobile menu decorative elements */}
-                  <motion.div 
-                    className="absolute -bottom-20 -right-20 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"
-                    animate={{ 
-                      scale: [1, 1.2, 1],
-                      opacity: [0.3, 0.2, 0.3] 
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                </div>
-              </motion.div>
+              <>
+                {/* Mobile menu overlay */}
+                <motion.div 
+                  className="mobile-menu-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsMenuOpen(false)}
+                />
+                
+                {/* Mobile menu container */}
+                <motion.div 
+                  className="mobile-menu-container md:hidden fixed top-20 left-0 right-0 z-50 backdrop-blur-xl bg-black/85 border-b border-blue-500/30 overflow-hidden shadow-xl"
+                  initial={{ height: 0, opacity: 0, y: -20 }}
+                  animate={{ height: 'auto', opacity: 1, y: 0 }}
+                  exit={{ height: 0, opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                >
+                  <div className="py-4 px-2 space-y-1">
+                    {['home', 'about', 'services', 'experience', 'projects', 'contact'].map((item, index) => (
+                      <motion.button
+                        key={item}
+                        onClick={() => {
+                          if (process.env.NODE_ENV === 'development') {
+                            console.log('Menu item clicked:', item);
+                          }
+                          scrollToSection(item);
+                        }}
+                        className={`mobile-menu-item block w-full text-left py-3 px-4 rounded-lg capitalize transition-all duration-300 ${
+                          activeSection === item 
+                            ? 'bg-gradient-to-r from-blue-600/60 to-blue-500/50 text-white active' 
+                            : 'text-gray-300 hover:bg-blue-900/30 hover:text-white'
+                        }`}
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.05 * index, duration: 0.3 }}
+                        whileHover={{ x: 5 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mr-3"></div>
+                          <span className="font-medium">{item}</span>
+                        </div>
+                      </motion.button>
+                    ))}
+                    
+                    {/* Mobile menu decorative elements */}
+                    <motion.div 
+                      className="absolute -bottom-20 -right-20 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        opacity: [0.3, 0.2, 0.3] 
+                      }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    />
+                  </div>
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
         </div>
@@ -1278,59 +1235,99 @@ const Portfolio = () => {
         </div>
       </section>
 
-      {/* Services Section */}
-      <section id="services" className="py-20 px-4 relative">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-        <div className="max-w-6xl mx-auto relative z-10">
+      {/* Services Section - Modern Beautiful Design */}
+      <section id="services" className="py-24 px-4 relative overflow-hidden">
+        {/* Sophisticated background with minimal distraction */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-blue-950/20 to-slate-900/90"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.03)_0%,transparent_50%)]"></div>
+        
+        <div className="max-w-7xl mx-auto relative z-10">
           <SectionHeader 
             title="Professional Services" 
-            subtitle="Specialized solutions to bring your vision to life" 
+            subtitle="Comprehensive digital solutions crafted with precision and innovation" 
           />
+          
+          {/* Modern grid layout with enhanced visual hierarchy */}
           <motion.div 
-            className="grid md:grid-cols-2 gap-8"
+            className="grid lg:grid-cols-2 gap-8 lg:gap-12 mt-16"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
             {services.map((service, index) => (
               <motion.div 
                 key={index}
-                initial={{ y: 50, opacity: 0 }}
+                initial={{ y: 60, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.2 * index }}
+                transition={{ 
+                  duration: 0.7, 
+                  delay: 0.1 * index,
+                  ease: "easeOut"
+                }}
                 viewport={{ once: true }}
+                className="group"
               >
-                <Tilt options={{ max: 10, scale: 1, speed: 300 }}>
-                  <div className="h-full apple-glass p-8 rounded-xl group relative overflow-hidden">
-                    {/* Glowing background effect */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-transparent to-cyan-600/20 rounded-xl blur-xl group-hover:opacity-100 opacity-0 transition-opacity duration-500"></div>
-                    
-                    {/* Top corner decoration */}
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-600/30 to-transparent -mr-10 -mt-10 rounded-full blur-2xl group-hover:opacity-100 opacity-0 transition-opacity duration-500"></div>
-                    
-                    {/* Content */}
-                    <div className="relative z-10">
-                      <div className="bg-gradient-to-br from-blue-900/60 to-blue-600/30 p-4 rounded-xl w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 text-blue-400 shadow-lg">
-                        {service.icon}
+                <Tilt options={{ max: 8, scale: 1.02, speed: 400 }}>
+                  <div className="relative h-full">
+                    {/* Modern card container with sophisticated glass effect */}
+                    <div className="relative h-full bg-gradient-to-br from-slate-800/40 via-slate-800/60 to-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 group-hover:border-blue-500/30 transition-all duration-500 overflow-hidden">
+                      
+                      {/* Subtle glow effect on hover */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/20 to-purple-600/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
+                      
+                      {/* Top accent line */}
+                      <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent"></div>
+                      
+                      {/* Icon container with modern styling */}
+                      <div className="relative mb-8">
+                        <div className="inline-flex p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 backdrop-blur-sm border border-blue-500/20 group-hover:border-blue-400/40 group-hover:scale-110 transition-all duration-300">
+                          <div className="text-blue-400 group-hover:text-blue-300 transition-colors duration-300">
+                            {service.icon}
+                          </div>
+                        </div>
                       </div>
-                      <h3 className="text-xl font-bold mb-4 text-blue-300 group-hover:text-blue-200 transition-colors">{service.title}</h3>
-                      <p className="text-gray-300 mb-6">{service.description}</p>
-                      <div className="space-y-3">
-                        {service.features.map((feature, i) => (
-                          <motion.div 
-                            key={i} 
-                            className="flex items-center text-sm text-blue-200"
-                            initial={{ opacity: 0, x: -10 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.3, delay: 0.3 + (0.1 * i) }}
-                            viewport={{ once: true }}
-                          >
-                            <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full mr-3"></div>
-                            {feature}
-                          </motion.div>
-                        ))}
+                      
+                      {/* Content with improved typography */}
+                      <div className="relative space-y-6">
+                        <div>
+                          <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent mb-3 group-hover:from-blue-200 group-hover:to-purple-200 transition-all duration-300">
+                            {service.title}
+                          </h3>
+                          <p className="text-slate-300 leading-relaxed text-lg">
+                            {service.description}
+                          </p>
+                        </div>
+                        
+                        {/* Features list with modern styling */}
+                        <div className="space-y-4">
+                          <div className="h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
+                          <div className="grid gap-3">
+                            {service.features.map((feature, i) => (
+                              <motion.div 
+                                key={i} 
+                                className="flex items-center group-hover:translate-x-1 transition-transform duration-300"
+                                initial={{ opacity: 0, x: -20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                transition={{ 
+                                  duration: 0.4, 
+                                  delay: 0.4 + (0.1 * i),
+                                  ease: "easeOut"
+                                }}
+                                viewport={{ once: true }}
+                              >
+                                <div className="flex-shrink-0 w-2 h-2 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 mr-4 group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-shadow duration-300"></div>
+                                <span className="text-slate-300 font-medium">
+                                  {feature}
+                                </span>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
+                      
+                      {/* Bottom accent */}
+                      <div className="absolute bottom-0 right-0 w-32 h-32 bg-gradient-to-tl from-blue-600/5 to-transparent rounded-tl-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     </div>
                   </div>
                 </Tilt>
@@ -1338,75 +1335,77 @@ const Portfolio = () => {
             ))}
           </motion.div>
           
-          {/* Contact Buttons */}
+          {/* Enhanced call-to-action section */}
           <motion.div 
-            className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-16"
-            initial={{ opacity: 0, y: 20 }}
+            className="mt-20"
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
             viewport={{ once: true }}
           >
-            {/* WhatsApp Business Button */}
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full sm:w-auto"
-            >
-              <a 
-                href="https://wa.me/message/ZWCJZ76JDVM6I1" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="group relative inline-flex items-center w-full sm:w-auto px-8 py-4 overflow-hidden rounded-xl bg-gradient-to-r from-green-600 to-green-500 text-white shadow-lg transition-all duration-300 hover:shadow-green-500/30"
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-6 p-8 bg-gradient-to-r from-slate-800/30 to-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl">
+              {/* WhatsApp Business Button */}
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full sm:w-auto"
               >
-                <span className="absolute left-0 top-0 h-full w-0 bg-gradient-to-r from-green-500 to-green-400 transition-all duration-500 ease-out group-hover:w-full"></span>
-                <span className="absolute right-0 flex h-full w-10 translate-x-full items-center justify-start duration-500 ease-out group-hover:-translate-x-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8.465 11.293c1.133-1.133 3.109-1.133 4.242 0l.707.707 1.414-1.414-.707-.707c-1.889-1.889-5.091-1.889-6.98 0l-.707.707 1.414 1.414.707-.707z"></path>
-                    <path d="M10 17.414l-1.707-1.707-1.414 1.414L10 20.242l6.014-6.014-1.414-1.414z"></path>
-                  </svg>
-                </span>
-                <span className="relative flex items-center space-x-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-                  </svg>
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs opacity-80">WhatsApp Business</span>
-                    <span className="font-medium">Hire Me</span>
-                  </div>
-                </span>
-              </a>
-            </motion.div>
-            
-            {/* Email Button */}
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full sm:w-auto"
-            >
-              <a 
-                href="mailto:sathsarajayantha8@gmail.com" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="group relative inline-flex items-center w-full sm:w-auto px-8 py-4 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg transition-all duration-300 hover:shadow-blue-500/30"
+                <a 
+                  href="https://wa.me/message/ZWCJZ76JDVM6I1" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="group relative inline-flex items-center w-full sm:w-auto px-8 py-4 overflow-hidden rounded-xl bg-gradient-to-r from-green-600 to-green-500 text-white shadow-lg transition-all duration-300 hover:shadow-green-500/30"
+                >
+                  <span className="absolute left-0 top-0 h-full w-0 bg-gradient-to-r from-green-500 to-green-400 transition-all duration-500 ease-out group-hover:w-full"></span>
+                  <span className="absolute right-0 flex h-full w-10 translate-x-full items-center justify-start duration-500 ease-out group-hover:-translate-x-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.465 11.293c1.133-1.133 3.109-1.133 4.242 0l.707.707 1.414-1.414-.707-.707c-1.889-1.889-5.091-1.889-6.98 0l-.707.707 1.414 1.414.707-.707z"></path>
+                      <path d="M10 17.414l-1.707-1.707-1.414 1.414L10 20.242l6.014-6.014-1.414-1.414z"></path>
+                    </svg>
+                  </span>
+                  <span className="relative flex items-center space-x-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <div className="flex flex-col items-start">
+                      <span className="text-xs opacity-80">WhatsApp Business</span>
+                      <span className="font-medium">Hire Me</span>
+                    </div>
+                  </span>
+                </a>
+              </motion.div>
+              
+              {/* Email Button */}
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full sm:w-auto"
               >
-                <span className="absolute left-0 top-0 h-full w-0 bg-gradient-to-r from-blue-400 to-cyan-400 transition-all duration-500 ease-out group-hover:w-full"></span>
-                <span className="absolute right-0 flex h-full w-10 translate-x-full items-center justify-start duration-500 ease-out group-hover:-translate-x-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8.465 11.293c1.133-1.133 3.109-1.133 4.242 0l.707.707 1.414-1.414-.707-.707c-1.889-1.889-5.091-1.889-6.98 0l-.707.707 1.414 1.414.707-.707z"></path>
-                    <path d="M10 17.414l-1.707-1.707-1.414 1.414L10 20.242l6.014-6.014-1.414-1.414z"></path>
-                  </svg>
-                </span>
-                <span className="relative flex items-center space-x-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs opacity-80">Email Me</span>
-                    <span className="font-medium">Get a Quote</span>
-                  </div>
-                </span>
-              </a>
-            </motion.div>
+                <a 
+                  href="mailto:sathsarajayantha8@gmail.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="group relative inline-flex items-center w-full sm:w-auto px-8 py-4 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg transition-all duration-300 hover:shadow-blue-500/30"
+                >
+                  <span className="absolute left-0 top-0 h-full w-0 bg-gradient-to-r from-blue-400 to-cyan-400 transition-all duration-500 ease-out group-hover:w-full"></span>
+                  <span className="absolute right-0 flex h-full w-10 translate-x-full items-center justify-start duration-500 ease-out group-hover:-translate-x-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.465 11.293c1.133-1.133 3.109-1.133 4.242 0l.707.707 1.414-1.414-.707-.707c-1.889-1.889-5.091-1.889-6.98 0l-.707.707 1.414 1.414.707-.707z"></path>
+                      <path d="M10 17.414l-1.707-1.707-1.414 1.414L10 20.242l6.014-6.014-1.414-1.414z"></path>
+                    </svg>
+                  </span>
+                  <span className="relative flex items-center space-x-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <div className="flex flex-col items-start">
+                      <span className="text-xs opacity-80">Email Me</span>
+                      <span className="font-medium">Get a Quote</span>
+                    </div>
+                  </span>
+                </a>
+              </motion.div>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -1703,7 +1702,7 @@ const Portfolio = () => {
                   className="relative z-10"
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
+                  transition={{ duration: 0.5, delay: 0.7 }}
                   viewport={{ once: true, margin: "-100px" }}
                 >
                   <div className="relative">
@@ -1711,7 +1710,7 @@ const Portfolio = () => {
                       className="absolute -left-12 w-7 h-7 rounded-full border-2 border-blue-600 bg-black flex items-center justify-center shadow-md shadow-blue-600/20"
                       initial={{ scale: 0 }}
                       whileInView={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 200, damping: 10, delay: 0.7 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 10, delay: 0.8 }}
                       viewport={{ once: true }}
                     >
                       <div className="w-3 h-3 rounded-full bg-blue-600"></div>
@@ -1740,61 +1739,264 @@ const Portfolio = () => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 px-4 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-blue-900/10"></div>
-        <div className="max-w-6xl mx-auto relative z-10">
-          <SectionHeader 
-            title="Client Testimonials" 
-            subtitle="Hear what clients have to say about their experience working with me" 
-          />
-          <div className="grid md:grid-cols-3 gap-8">
+      {/* Client Testimonials Section - Enhanced with Add Testimonial Feature */}
+      <section id="testimonials" className="py-24 px-4 relative overflow-hidden">
+        {/* Modern background - Black and Blue only */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-blue-950/40 to-black/90"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.08)_0%,transparent_50%)]"></div>
+        
+        <div className="max-w-7xl mx-auto relative z-10">
+          {/* Centered Header */}
+          <div className="text-center mb-16">
+            <SectionHeader 
+              title="Client Testimonials" 
+              subtitle="What our valued clients say about their experience working with us" 
+            />
+            
+            {/* Add Testimonial Button - Repositioned below header */}
+            <motion.div
+              className="mt-8 flex justify-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <motion.button
+                onClick={() => setShowTestimonialForm(true)}
+                className="group relative inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-semibold rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-blue-500/30"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <span className="relative flex items-center gap-3">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Your Testimonial
+                </span>
+              </motion.button>
+            </motion.div>
+          </div>
+
+          {/* Testimonials Grid */}
+          <motion.div 
+            className="grid md:grid-cols-2 xl:grid-cols-3 gap-8"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
             {testimonials.map((testimonial, index) => (
               <motion.div 
-                key={index}
-                initial={{ opacity: 0, y: 50 }}
+                key={testimonial.id}
+                initial={{ opacity: 0, y: 60 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.7, delay: index * 0.1 }}
                 viewport={{ once: true }}
+                className="group"
               >
-                <Tilt options={{ max: 15, scale: 1, speed: 300 }}>
-                  <div className="h-full backdrop-blur-md bg-gradient-to-b from-black/70 to-blue-900/20 p-6 rounded-xl border border-blue-500/20 hover:border-blue-400/30 transition-all duration-300 shadow-lg">
-                    <div className="flex items-center mb-6">
-                      <div className="flex mr-4">
-                        {[...Array(testimonial.rating)].map((_, i) => (
-                          <motion.div 
-                            key={i}
-                            initial={{ opacity: 0, scale: 0 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3, delay: 0.3 + (i * 0.1) }}
-                            viewport={{ once: true }}
-                          >
-                            <Star className="w-5 h-5 text-blue-400 fill-current mr-1" />
-                          </motion.div>
-                        ))}
+                <Tilt options={{ max: 8, scale: 1.02, speed: 400 }}>
+                  <div className="relative h-full">
+                    {/* Modern testimonial card - Black and Blue only */}
+                    <div className="h-full bg-gradient-to-br from-black/70 via-blue-950/50 to-black/80 backdrop-blur-xl border border-blue-900/30 rounded-2xl p-8 group-hover:border-blue-500/50 transition-all duration-500 overflow-hidden">
+                      
+                      {/* Subtle glow effect - Blue only */}
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600/0 via-blue-500/15 to-blue-600/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
+                      
+                      {/* Rating stars */}
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-1">
+                          {[...Array(testimonial.rating)].map((_, i) => (
+                            <motion.div 
+                              key={i}
+                              initial={{ opacity: 0, scale: 0 }}
+                              whileInView={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.3, delay: 0.5 + (i * 0.1) }}
+                              viewport={{ once: true }}
+                            >
+                              <Star className="w-5 h-5 text-blue-400 fill-current" />
+                            </motion.div>
+                          ))}
+                        </div>
+                        {testimonial.date && (
+                          <span className="text-xs text-blue-300/70">
+                            {new Date(testimonial.date).toLocaleDateString()}
+                          </span>
+                        )}
                       </div>
-                      <div className="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent"></div>
-                    </div>
-                    <div className="relative mb-8">
-                      <div className="absolute -top-2 -left-2 text-4xl text-blue-500/30">"</div>
-                      <p className="text-gray-300 italic relative z-10">{testimonial.message}</p>
-                      <div className="absolute -bottom-4 -right-2 text-4xl text-blue-500/30">"</div>
-                    </div>
-                    <div className="flex items-center border-t border-blue-500/20 pt-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-lg font-bold text-white">
-                        {testimonial.name.charAt(0)}
+                      
+                      {/* Testimonial content */}
+                      <div className="relative mb-8">
+                        <div className="absolute -top-2 -left-2 text-4xl text-blue-400/40 font-serif">"</div>
+                        <p className="text-gray-200 leading-relaxed text-lg italic relative z-10 pl-4">
+                          {testimonial.message}
+                        </p>
+                        <div className="absolute -bottom-4 -right-2 text-4xl text-blue-400/40 font-serif">"</div>
                       </div>
-                      <div className="ml-4">
-                        <div className="font-semibold text-blue-300">{testimonial.name}</div>
-                        <div className="text-sm text-gray-400">{testimonial.role}</div>
+                      
+                      {/* Client info */}
+                      <div className="flex items-center pt-6 border-t border-blue-800/30">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-blue-800 flex items-center justify-center text-lg font-bold text-white shadow-lg">
+                          {testimonial.name.charAt(0)}
+                        </div>
+                        <div className="ml-4">
+                          <div className="font-semibold text-blue-300 text-lg">
+                            {testimonial.name}
+                          </div>
+                          <div className="text-sm text-blue-200/70">
+                            {testimonial.role}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </Tilt>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
+
+          {/* Stats section - Black and Blue only */}
+          <motion.div
+            className="mt-16 grid grid-cols-2 md:grid-cols-3 gap-8 p-8 bg-gradient-to-r from-black/40 to-blue-950/40 backdrop-blur-xl border border-blue-800/40 rounded-2xl"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            viewport={{ once: true }}
+          >
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-400 mb-2">{testimonials.length}+</div>
+              <div className="text-blue-200">Happy Clients</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-400 mb-2">5.0</div>
+              <div className="text-blue-200">Average Rating</div>
+            </div>
+            <div className="text-center col-span-2 md:col-span-1">
+              <div className="text-3xl font-bold text-blue-400 mb-2">100%</div>
+              <div className="text-blue-200">Satisfaction Rate</div>
+            </div>
+          </motion.div>
         </div>
+
+        {/* Add Testimonial Modal */}
+        <AnimatePresence>
+          {showTestimonialForm && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTestimonialForm(false)}
+            >
+              {/* Backdrop */}
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+              
+              {/* Modal - Black and Blue only */}
+              <motion.div
+                className="relative w-full max-w-md bg-gradient-to-br from-black/90 to-blue-950/80 border border-blue-800/50 rounded-2xl p-8 shadow-2xl"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-white">Share Your Experience</h3>
+                  <button
+                    onClick={() => setShowTestimonialForm(false)}
+                    className="text-blue-300 hover:text-white transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddTestimonial} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-blue-200 mb-2">
+                      Your Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newTestimonial.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="w-full px-4 py-3 bg-blue-950/50 border border-blue-700 rounded-xl text-white placeholder-blue-300/70 focus:outline-none focus:border-blue-400 transition-colors"
+                      placeholder="Enter your full name"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-blue-200 mb-2">
+                      Your Role/Title
+                    </label>
+                    <input
+                      type="text"
+                      value={newTestimonial.role}
+                      onChange={(e) => handleInputChange('role', e.target.value)}
+                      className="w-full px-4 py-3 bg-blue-950/50 border border-blue-700 rounded-xl text-white placeholder-blue-300/70 focus:outline-none focus:border-blue-400 transition-colors"
+                      placeholder="e.g., CEO, Marketing Director"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-blue-200 mb-2">
+                      Your Testimonial *
+                    </label>
+                    <textarea
+                      value={newTestimonial.message}
+                      onChange={(e) => handleInputChange('message', e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-3 bg-blue-950/50 border border-blue-700 rounded-xl text-white placeholder-blue-300/70 focus:outline-none focus:border-blue-400 transition-colors resize-none"
+                      placeholder="Share your experience working with us..."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-blue-200 mb-2">
+                      Rating
+                    </label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() => handleInputChange('rating', rating)}
+                          className="p-1 transition-colors"
+                        >
+                          <Star 
+                            className={`w-6 h-6 ${
+                              rating <= newTestimonial.rating 
+                                ? 'text-blue-400 fill-current' 
+                                : 'text-blue-600/50'
+                            }`} 
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowTestimonialForm(false)}
+                      className="flex-1 px-6 py-3 bg-blue-900/60 text-white rounded-xl hover:bg-blue-800/60 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-xl hover:from-blue-500 hover:to-blue-700 transition-all duration-300"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* Projects Section */}
@@ -2112,7 +2314,22 @@ const Portfolio = () => {
             </div>
             
             <div className="md:col-span-3">
-              <ContactForm />
+              <Suspense fallback={
+                <div className="max-w-2xl mx-auto">
+                  <div className="glass-card p-8 animate-pulse">
+                    <div className="h-8 bg-gray-300 rounded mb-4"></div>
+                    <div className="h-4 bg-gray-300 rounded mb-6"></div>
+                    <div className="space-y-4">
+                      <div className="h-12 bg-gray-300 rounded"></div>
+                      <div className="h-12 bg-gray-300 rounded"></div>
+                      <div className="h-32 bg-gray-300 rounded"></div>
+                      <div className="h-12 bg-gray-300 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+              }>
+                <ContactForm />
+              </Suspense>
             </div>
           </div>
         </div>
